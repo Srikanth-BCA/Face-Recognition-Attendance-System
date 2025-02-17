@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mark Attendance</title>
+  <style>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+    
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+    
+        #video-feed {
+            width: 60%;
+            margin: 20px auto;
+            display: block;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            text-align: center; /* Center the content inside the container */
+        }
+        
+        #video-feed h2 {
+            font-size: 20px;
+            color: #333;
+            padding: 10px;
+            margin: 0; /* Remove default margin for cleaner layout */
+        }
+        
+        #video-feed img {
+            width: 100%; /* Ensure the video feed takes up the full width of the container */
+            max-width: 100%; /* Avoid scaling the video beyond the container size */
+            height: auto; /* Maintain aspect ratio */
+            border-radius: 8px; /* Optional: rounded corners for the video feed */
+        }
+        
+    
+        form {
+            text-align: center;
+        }
+    
+        button {
+            padding: 12px 30px;
+            background-color: #4CAF50; /* Green button */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 200px;
+        }
+    
+        button:hover {
+            background-color: #45a049;
+        }
+    
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #video-feed {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+  <h1>Mark {{ type_of_attendance.capitalize() }} Attendance</h1>
+
+  <div id="video-feed">
+      <h2>Video Feed</h2>
+      <img src="{{ url_for('video_feed', type_of_attendance=type_of_attendance) }}" />
+  </div>
+
+  <h2 align="center">After Camera Loaded, Show Your Face For Atleast 3 Seconds.</h2> 
+
+  <br>
+  <form method="POST">
+      <button type="submit">Stop</button>
+  </form>
+</body>
+</html>
+
+
