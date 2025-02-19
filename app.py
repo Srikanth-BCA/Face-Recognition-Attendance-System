@@ -1,6 +1,6 @@
 # app.py
 
-from flask import Flask, flash, render_template, Response, redirect, url_for, request
+from flask import Flask, flash, render_template, Response, redirect, url_for, request, jsonify
 import face_recognition
 import cv2
 import numpy as np
@@ -115,6 +115,8 @@ def mark_attendance(type_of_attendance):
     
     return render_template('attendance.html', type_of_attendance=type_of_attendance, reference_data=reference_data)
 
+# Global list to store attendance messages
+attendance_messages = []
 
 @app.route('/video_feed/<type_of_attendance>')
 def video_feed(type_of_attendance):
@@ -124,6 +126,7 @@ def video_feed(type_of_attendance):
         video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT) // 2)
         known_face_names, known_face_encodings = load_users()
         
+        attendance_messages.clear()
         reference_data = []  # List to store marked users' info
         displayed_messages = set()  # Set to track displayed messages for each session
 
@@ -161,11 +164,13 @@ def video_feed(type_of_attendance):
                                 user_departure = True
                                 reference_data.append(f"{name} already marked departure.")
                                 print(f"{name} already marked departure.")
+                                attendance_messages.append(f"{name} already marked departure.")
                             break
 
                     if user_recorded == True :
                         reference_data.append(f"{name} already marked arrival.")
                         print(f"{name} already marked arrival.")
+                        attendance_messages.append(f"{name} already marked arrival.")
                         
                     if not user_recorded:
                         # If the user hasn't marked any attendance today
@@ -174,9 +179,11 @@ def video_feed(type_of_attendance):
                             save_attendance_record(name, datetime.datetime.now().strftime("%H:%M:%S"))
                             reference_data.append(f"{name} marked arrival.")
                             print(f"{name} marked arrival.")
+                            attendance_messages.append(f"{name} marked arrival.")
                         elif type_of_attendance == "departure":
                             reference_data.append(f"{name}, please mark your arrival first before departure.")
                             print(f"{name}, please mark your arrival first before departure.")
+                            attendance_messages.append(f"{name} please mark your arrival first before departure.")
                     
                     elif user_arrival and not user_departure:  # User has arrival marked but not departure
                         # Allow the user to mark departure
@@ -185,9 +192,11 @@ def video_feed(type_of_attendance):
                             save_departure_time(name, datetime.datetime.now().strftime("%H:%M:%S"))
                             reference_data.append(f"{name} marked departure.")
                             print(f"{name} marked departure.")
+                            attendance_messages.append(f"{name} marked departure.")
                     elif user_departure:  # User has both marked arrival and departure
                         reference_data.append(f"{name} already marked attendance for today.")
                         print(f"{name} already marked attendance for today.")
+                        attendance_messages.append(f"{name} already marked attendance for today.")
                                             
                     # Add user to displayed messages to prevent re-displaying in the same session
                     displayed_messages.add(name)
@@ -201,7 +210,10 @@ def video_feed(type_of_attendance):
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
+# Route to fetch messages from the global list
+@app.route('/get_messages', methods=['GET'])
+def get_messages():
+    return jsonify(attendance_messages)
 
 
 # Remaining routes and functions unchanged...
