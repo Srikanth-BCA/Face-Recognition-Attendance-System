@@ -24,6 +24,7 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative; /* Add this to allow positioning the button */
         }
 
         form {
@@ -109,6 +110,13 @@
             background-color: #ddd;
         }
 
+        /* Position the 'Generate Attendance Data' button */
+        .btn-container {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             table, form {
@@ -118,6 +126,12 @@
 
             button {
                 width: 100%;
+            }
+
+            .btn-container {
+                position: static;
+                text-align: center;
+                margin-top: 20px;
             }
         }
     </style>
@@ -158,6 +172,13 @@
         {% endif %}
 
         <a href="/">Back</a>
+
+        <!-- Button Container for 'Generate Attendance Data' -->
+        <div class="btn-container">
+            <form method="POST" action="{{ url_for('generate_attendance_data') }}">
+                <button type="submit">Generate Attendance Data</button>
+            </form>
+        </div>
     </div>
 </body>
 </html>

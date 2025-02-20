@@ -1,6 +1,6 @@
 # app.py
 
-from flask import Flask, flash, render_template, Response, redirect, url_for, request, jsonify
+from flask import Flask, flash, render_template, Response, redirect, url_for, request, jsonify, send_file, session
 import face_recognition
 import cv2
 import numpy as np
@@ -103,17 +103,15 @@ def save_departure_time(name, departure_time):
 
 @app.route('/mark/<type_of_attendance>', methods=['GET', 'POST'])
 def mark_attendance(type_of_attendance):
-    reference_data = []  # List to store marked students' info
     displayed_messages = set()  # Set to store displayed messages for this session
 
     if request.method == 'POST':
         # Clear attendance tracking for the selected type of attendance
         attendance_tracking[type_of_attendance].clear()
-        reference_data.clear()
         displayed_messages.clear()
         return redirect(url_for('index'))
     
-    return render_template('attendance.html', type_of_attendance=type_of_attendance, reference_data=reference_data)
+    return render_template('attendance.html', type_of_attendance=type_of_attendance,)
 
 # Global list to store attendance messages
 attendance_messages = []
@@ -127,7 +125,6 @@ def video_feed(type_of_attendance):
         known_face_names, known_face_encodings = load_users()
         
         attendance_messages.clear()
-        reference_data = []  # List to store marked users' info
         displayed_messages = set()  # Set to track displayed messages for each session
 
         while True:
@@ -151,37 +148,30 @@ def video_feed(type_of_attendance):
                     # Load the current day's attendance records
                     attendance_data = load_attendance_records_for_date(current_date)
 
-                    user_recorded = False
                     user_arrival = False
                     user_departure = False
                     
                     for record in attendance_data:
                         if record[0] == name:  # If the user exists in today's attendance records
-                            user_recorded = True
-                            if record[2] == "":  # If the user has marked arrival but not departure
-                                user_arrival = True
-                            else:  # If both arrival and departure are recorded
+                            if record[1] !="":
+                                user_arrival=True # If the user has marked arrival
+                                if type_of_attendance == "arrival":
+                                    print(f"{name} already marked arrival.")
+                                    attendance_messages.append(f"{name} already marked arrival.")
+                            if record[2] !="":  # If the user has marked  departure
                                 user_departure = True
-                                reference_data.append(f"{name} already marked departure.")
-                                print(f"{name} already marked departure.")
-                                attendance_messages.append(f"{name} already marked departure.")
-                            break
+                                if type_of_attendance == "departure":
+                                    print(f"{name} already marked departure.")
+                                    attendance_messages.append(f"{name} already marked departure.")
 
-                    if user_recorded == True :
-                        reference_data.append(f"{name} already marked arrival.")
-                        print(f"{name} already marked arrival.")
-                        attendance_messages.append(f"{name} already marked arrival.")
-                        
-                    if not user_recorded:
-                        # If the user hasn't marked any attendance today
+                    if not user_arrival:
+                        # If the user hasn't marked arrival today
                         if type_of_attendance == "arrival":
                             attendance_tracking["arrival"].add(name)
                             save_attendance_record(name, datetime.datetime.now().strftime("%H:%M:%S"))
-                            reference_data.append(f"{name} marked arrival.")
                             print(f"{name} marked arrival.")
                             attendance_messages.append(f"{name} marked arrival.")
                         elif type_of_attendance == "departure":
-                            reference_data.append(f"{name}, please mark your arrival first before departure.")
                             print(f"{name}, please mark your arrival first before departure.")
                             attendance_messages.append(f"{name} please mark your arrival first before departure.")
                     
@@ -190,13 +180,8 @@ def video_feed(type_of_attendance):
                         if type_of_attendance == "departure":
                             attendance_tracking["departure"].add(name)
                             save_departure_time(name, datetime.datetime.now().strftime("%H:%M:%S"))
-                            reference_data.append(f"{name} marked departure.")
                             print(f"{name} marked departure.")
                             attendance_messages.append(f"{name} marked departure.")
-                    elif user_departure:  # User has both marked arrival and departure
-                        reference_data.append(f"{name} already marked attendance for today.")
-                        print(f"{name} already marked attendance for today.")
-                        attendance_messages.append(f"{name} already marked attendance for today.")
                                             
                     # Add user to displayed messages to prevent re-displaying in the same session
                     displayed_messages.add(name)
@@ -210,14 +195,14 @@ def video_feed(type_of_attendance):
 
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+# Remaining routes and functions unchanged...
+
+
+
 # Route to fetch messages from the global list
 @app.route('/get_messages', methods=['GET'])
 def get_messages():
     return jsonify(attendance_messages)
-
-
-# Remaining routes and functions unchanged...
-
 
 @app.route('/')
 def index():
@@ -245,7 +230,34 @@ def admin_panel():
 
         # Add new user
         if action == 'add_user':
-            add_user()
+            name = request.form.get('name')
+            photo = request.files.get('photo')
+            
+            if photo and (photo.filename.endswith('.jpg') or photo.filename.endswith('.jpeg')):
+                photo_path = os.path.join(photos_dir, f"{name}.jpg")
+                photo.save(photo_path)
+                try:
+                    # Attempt to create face encoding for the new user
+                    new_image = face_recognition.load_image_file(photo_path)
+                    new_encodings = face_recognition.face_encodings(new_image)
+
+                    if not new_encodings:  # If no face found
+                        if os.path.exists(photo_path):
+                            os.remove(photo_path)  # Remove the photo
+                        flash("No face detected in the uploaded photo. Please try again with a valid photo.", 'add_user_error')
+                    else:
+                        flash("User added successfully!", 'add_user_success')  # Flash success message
+
+                except Exception as e:
+                    # Handle any other exceptions (e.g., invalid image format)
+                    if os.path.exists(photo_path):
+                        os.remove(photo_path)  # Remove the photo
+                    flash(f"An error occurred: {str(e)}", 'add_user_error')
+            else:
+                flash("Invalid file format. Please upload a JPG or JPEG photo.", 'add_user_error')
+            
+            return redirect(url_for('admin_panel'))
+
 
         # Delete user
         elif action == 'delete_user':
@@ -259,49 +271,112 @@ def admin_panel():
 
     return render_template('admin_panel.html')
 
-def add_user():    
-    name = request.form.get('name')
-    photo = request.files.get('photo')
     
-    if photo and (photo.filename.endswith('.jpg') or photo.filename.endswith('.jpeg')):
-        photo_path = os.path.join(photos_dir, f"{name}.jpg")
-        photo.save(photo_path)
-        try:
-            # Attempt to create face encoding for the new user
-            new_image = face_recognition.load_image_file(photo_path)
-            new_encodings = face_recognition.face_encodings(new_image)
+from flask import render_template, request, session, send_file
+import os
+import csv
 
-            if not new_encodings:  # If no face found
-                if os.path.exists(photo_path):
-                    os.remove(photo_path)  # Remove the photo
-                flash("No face detected in the uploaded photo. Please try again with a valid photo.", 'add_user_error')
-            else:
-                flash("User added successfully!", 'add_user_success')  # Flash success message
+@app.route('/generate_attendance_data', methods=['GET', 'POST'])
+def generate_attendance_data():
+    dates = list_all_dates()  # Get available dates
+    all_users = user_names()  # Fetch all users
 
-        except Exception as e:
-            # Handle any other exceptions (e.g., invalid image format)
-            if os.path.exists(photo_path):
-                os.remove(photo_path)  # Remove the photo
-            flash(f"An error occurred: {str(e)}", 'add_user_error')
-    else:
-        flash("Invalid file format. Please upload a JPG or JPEG photo.", 'add_user_error')
-    
-    return redirect(url_for('admin_panel'))
+    if request.method == 'POST':
+        selected_date = request.form.get('date')
 
+        # Load the attendance data for the selected date
+        attendance_data = load_attendance_records_for_date(selected_date)
 
+        if not attendance_data:
+            return render_template('attendance_data.html', dates=dates, message="No records found for the selected date.", selected_date=selected_date)
+
+        present_students = []
+        absent_students = []
+
+        # Loop through all users
+        for user in all_users:
+            user_present = False
+
+            # Check each attendance record for the current user
+            for record in attendance_data:
+                name = record[0]
+                arrival_time = record[1]
+                departure_time = record[2]
+
+                if name == user:
+                    # If both arrival and departure times are recorded, mark as present
+                    if arrival_time and departure_time:
+                        present_students.append(name)
+                        user_present = True
+                    # If only arrival time is recorded, mark as absent
+                    elif arrival_time and not departure_time:
+                        absent_students.append(name)
+                        user_present = True
+                    break  # No need to check further records for this user
+            
+            # If the user is not in the attendance record (no matching name), mark as absent
+            if not user_present:
+                absent_students.append(user)
+
+        # Generate CSV content with two columns: Present Students and Absent Students
+        csv_content = "Present Students, Absent Students\n"
+        max_length = max(len(present_students), len(absent_students))
+
+        for i in range(max_length):
+            present = present_students[i] if i < len(present_students) else ""
+            absent = absent_students[i] if i < len(absent_students) else ""
+            csv_content += f"{present},{absent}\n"
+
+        # Store CSV content and filename in session
+        session['csv_content'] = csv_content
+        session['filename'] = f"attendance_data_{selected_date}.csv"
+
+        # After selecting a date, show the "View Data" and enable the download button
+        return render_template('attendance_data.html', 
+                               dates=dates, 
+                               selected_date=selected_date, 
+                               present_students=present_students, 
+                               absent_students=absent_students, 
+                               download_link=True)
+
+    return render_template('attendance_data.html', dates=dates)
+
+@app.route('/download/<filename>')
+def download(filename):
+    # Retrieve CSV content from session
+    csv_content = session.get('csv_content')
+
+    if not csv_content:
+        return "No data available to download", 400
+
+    # Save the CSV content to a temporary file for download
+    temp_folder = 'attendance_data'
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+
+    file_path = os.path.join(temp_folder, filename)
+
+    # Save the CSV content to a file
+    with open(file_path, 'w') as f:
+        f.write(csv_content)
+
+    # Return the file for download
+    return send_file(file_path, as_attachment=True, download_name=filename)
 
 @app.route('/all_users')
 def all_users():
+    users=user_names()
+    return render_template('all_users.html', users=users)
+
+def user_names():
     # Get the list of all known user names
-    global user
-    user=[]
+    users=[]
     for file_name in os.listdir(photos_dir):
         if file_name.endswith('.jpg'):
             nam = os.path.splitext(file_name)[0]
             if nam:
-                user.append(nam)
-    users = user
-    return render_template('all_users.html', users=users)
+                users.append(nam)
+    return users
 
 
 @app.route('/records', methods=['GET', 'POST'])

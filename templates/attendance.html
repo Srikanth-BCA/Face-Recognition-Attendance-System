@@ -18,7 +18,7 @@
     }
 
     #video-feed {
-        width: 60%;
+        width: 470px;
         margin: 20px auto;
         display: block;
         border-radius: 8px;
@@ -36,8 +36,8 @@
     }
 
     #video-feed img {
-        width: 100%;
-        max-width: 100%;
+        width: 450px;
+        max-width: 450px;
         height: auto;
         border-radius: 8px;
     }
@@ -99,7 +99,8 @@
 
   <div id="video-feed">
       <h2>Video Feed</h2>
-      <img src="{{ url_for('video_feed', type_of_attendance=type_of_attendance) }}" />
+      <!-- Added id="video-stream" to the img tag to properly reference it in JavaScript -->
+      <img id="video-stream" src="{{ url_for('video_feed', type_of_attendance=type_of_attendance) }}" />
   </div>
   
   <div class="container">
@@ -111,8 +112,8 @@
 
   <!-- Stop Button to stop session -->
   <form method="GET" action="{{ url_for('index') }}"> <!-- Just use action to redirect to the index -->
-      <button type="submit" id="stop-button">Stop</button>
-  </form>
+    <button type="submit" id="stop-button">Stop</button>
+</form>
 
   <script>
     // Function to fetch and display flash messages from the backend
@@ -134,10 +135,25 @@
     // Poll for new messages every 3 seconds
     setInterval(fetchMessages, 3000);
 
-    // Optional: Clear message container after form submission
-    document.getElementById('stop-button').addEventListener('click', function() {
-        // Clear the message container before redirecting
+    // Stop the video feed and terminate the session
+    document.getElementById('stop-button').addEventListener('click', function(event) {
+        // Prevent form submission and page reload
+        event.preventDefault();
+        
+        // Find the video stream element
+        const videoElement = document.getElementById('video-stream');
+        
+        // Stop the video by setting the `src` to an empty string or null
+        videoElement.src = ""; // Stops the video feed
+
+        // Optionally, clear the message container if needed
         document.getElementById('messages-container').innerHTML = '';
+
+        // You can also remove or hide the video feed if you want to visually stop it
+        videoElement.style.display = 'none'; // Hide the video stream
+
+        // Redirect to index.html after stopping the video feed
+        window.location.href = "{{ url_for('index') }}";  // Use Flask's `url_for` to generate the URL
     });
   </script>
 
