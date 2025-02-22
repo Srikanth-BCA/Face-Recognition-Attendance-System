@@ -215,7 +215,7 @@ def admin_login():
         password = request.form.get('password')
 
         # Validate credentials
-        if username == 'a' and password == 'a':
+        if username == 'admin' and password == 'admin123':
             return redirect(url_for('admin_panel'))
         else:
             return render_template('admin_login.html', error="Incorrect username or password")
@@ -233,8 +233,13 @@ def admin_panel():
             name = request.form.get('name')
             photo = request.files.get('photo')
             
+            # Check if the username already exists
+            photo_path = os.path.join(photos_dir, f"{name}.jpg")
+            if os.path.exists(photo_path):
+                flash("Username already exists. Please choose a different name.", 'add_user_error')
+                return redirect(url_for('admin_panel'))
+            
             if photo and (photo.filename.endswith('.jpg') or photo.filename.endswith('.jpeg')):
-                photo_path = os.path.join(photos_dir, f"{name}.jpg")
                 photo.save(photo_path)
                 try:
                     # Attempt to create face encoding for the new user
@@ -245,6 +250,10 @@ def admin_panel():
                         if os.path.exists(photo_path):
                             os.remove(photo_path)  # Remove the photo
                         flash("No face detected in the uploaded photo. Please try again with a valid photo.", 'add_user_error')
+                    elif len(new_encodings) > 1:  # If multiple faces found
+                        if os.path.exists(photo_path):
+                            os.remove(photo_path)  # Remove the photo
+                        flash("Multiple faces detected in the uploaded photo or duplicate photo uploaded. Please upload a valid photo.", 'add_user_error')
                     else:
                         flash("User added successfully!", 'add_user_success')  # Flash success message
 
@@ -258,7 +267,6 @@ def admin_panel():
             
             return redirect(url_for('admin_panel'))
 
-
         # Delete user
         elif action == 'delete_user':
             name = request.form.get('delete_name')
@@ -271,10 +279,7 @@ def admin_panel():
 
     return render_template('admin_panel.html')
 
-    
-from flask import render_template, request, session, send_file
-import os
-import csv
+
 
 @app.route('/generate_attendance_data', methods=['GET', 'POST'])
 def generate_attendance_data():
@@ -290,8 +295,8 @@ def generate_attendance_data():
         if not attendance_data:
             return render_template('attendance_data.html', dates=dates, message="No records found for the selected date.", selected_date=selected_date)
 
-        present_students = []
-        absent_students = []
+        present_members = []
+        absent_members = []
 
         # Loop through all users
         for user in all_users:
@@ -306,25 +311,25 @@ def generate_attendance_data():
                 if name == user:
                     # If both arrival and departure times are recorded, mark as present
                     if arrival_time and departure_time:
-                        present_students.append(name)
+                        present_members.append(name)
                         user_present = True
                     # If only arrival time is recorded, mark as absent
                     elif arrival_time and not departure_time:
-                        absent_students.append(name)
+                        absent_members.append(name)
                         user_present = True
                     break  # No need to check further records for this user
             
             # If the user is not in the attendance record (no matching name), mark as absent
             if not user_present:
-                absent_students.append(user)
+                absent_members.append(user)
 
-        # Generate CSV content with two columns: Present Students and Absent Students
-        csv_content = "Present Students, Absent Students\n"
-        max_length = max(len(present_students), len(absent_students))
+        # Generate CSV content with two columns: Present members and Absent members
+        csv_content = "Present members, Absent members\n"
+        max_length = max(len(present_members), len(absent_members))
 
         for i in range(max_length):
-            present = present_students[i] if i < len(present_students) else ""
-            absent = absent_students[i] if i < len(absent_students) else ""
+            present = present_members[i] if i < len(present_members) else ""
+            absent = absent_members[i] if i < len(absent_members) else ""
             csv_content += f"{present},{absent}\n"
 
         # Store CSV content and filename in session
@@ -335,8 +340,8 @@ def generate_attendance_data():
         return render_template('attendance_data.html', 
                                dates=dates, 
                                selected_date=selected_date, 
-                               present_students=present_students, 
-                               absent_students=absent_students, 
+                               present_members=present_members, 
+                               absent_members=absent_members, 
                                download_link=True)
 
     return render_template('attendance_data.html', dates=dates)
