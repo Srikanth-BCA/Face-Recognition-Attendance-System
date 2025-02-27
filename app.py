@@ -25,7 +25,6 @@ if not os.path.exists(attendance_dir):
 if not os.path.exists(photos_dir):
     os.makedirs(photos_dir)
 
-
 # Global variables for attendance tracking
 attendance_tracking = {
     "arrival": set(),  # Set to track arrivals
@@ -384,7 +383,7 @@ def download(filename):
         return "No data available to download", 400
 
     # Save the CSV content to a temporary file for download
-    temp_folder = 'attendance_data'
+    temp_folder = os.path.join(current_dir, 'attendance_data')
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
 
