@@ -4,6 +4,7 @@ from flask import Flask, flash, render_template, Response, redirect, url_for, re
 import face_recognition
 import cv2
 import numpy as np
+from PIL import Image
 import csv
 import datetime
 import os
@@ -197,8 +198,6 @@ def video_feed(type_of_attendance):
 
 # Remaining routes and functions unchanged...
 
-
-
 # Route to fetch messages from the global list
 @app.route('/get_messages', methods=['GET'])
 def get_messages():
@@ -222,7 +221,6 @@ def admin_login():
     
     return render_template('admin_login.html')
 
-
 @app.route('/admin_panel', methods=['GET', 'POST'])
 def admin_panel():
     if request.method == 'POST':
@@ -241,10 +239,35 @@ def admin_panel():
             
             if photo and (photo.filename.endswith('.jpg') or photo.filename.endswith('.jpeg')):
                 photo.save(photo_path)
+
                 try:
+                    # Open the image
+                    image = Image.open(photo_path)
+
+                    # Resize the image if it's too large, but maintain aspect ratio
+                    max_size = 800  # Max size for resizing
+                    width, height = image.size
+                    if width > max_size or height > max_size:
+                        aspect_ratio = width / height
+                        if width > height:
+                            new_width = max_size
+                            new_height = int(new_width / aspect_ratio)
+                        else:
+                            new_height = max_size
+                            new_width = int(new_height * aspect_ratio)
+                        image = image.resize((new_width, new_height))  # Resize while preserving aspect ratio
+                        image.save(photo_path)  # Save the resized image back
+
+                    # Convert image to grayscale (optional, can help in some cases)
+                    image = image.convert("L")  # "L" mode is for grayscale
+                    image.save(photo_path)  # Save back grayscale image
+
                     # Attempt to create face encoding for the new user
                     new_image = face_recognition.load_image_file(photo_path)
                     new_encodings = face_recognition.face_encodings(new_image)
+
+                    # Debugging: print the number of faces detected
+                    print(f"Detected {len(new_encodings)} faces.")
 
                     if not new_encodings:  # If no face found
                         if os.path.exists(photo_path):
@@ -253,7 +276,7 @@ def admin_panel():
                     elif len(new_encodings) > 1:  # If multiple faces found
                         if os.path.exists(photo_path):
                             os.remove(photo_path)  # Remove the photo
-                        flash("Multiple faces detected in the uploaded photo or duplicate photo uploaded. Please upload a valid photo.", 'add_user_error')
+                        flash("Multiple faces detected in the uploaded photo. Please upload a photo with only one face.", 'add_user_error')
                     else:
                         flash("User added successfully!", 'add_user_success')  # Flash success message
 
