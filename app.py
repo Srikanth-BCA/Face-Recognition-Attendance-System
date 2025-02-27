@@ -12,13 +12,19 @@ import os
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Directory to save the CSV files (attendance records)
-attendance_dir = 'attendance_records'
-photos_dir = 'photos'
+# Get the absolute path of the current script's directory (where app.py is located)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Define the directories to save the CSV files and photos inside the project directory
+attendance_dir = os.path.join(current_dir, 'attendance_records')
+photos_dir = os.path.join(current_dir, 'photos')
+
+# Check if the directories exist, if not, create them
 if not os.path.exists(attendance_dir):
     os.makedirs(attendance_dir)
 if not os.path.exists(photos_dir):
     os.makedirs(photos_dir)
+
 
 # Global variables for attendance tracking
 attendance_tracking = {
